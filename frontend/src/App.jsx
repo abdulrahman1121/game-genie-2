@@ -12,7 +12,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-6">
       <h1 className="text-4xl font-bold text-indigo-800 mb-8 shadow-text">Math Pair Game</h1>
       {!gameData ? (
         <SelectLevel onStart={handleStart} />

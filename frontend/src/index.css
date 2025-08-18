@@ -1,6 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=Monda:wght@400;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+  .text-stroke-4 {
+    -webkit-text-stroke-width: 3px;
+    -webkit-text-stroke-color: #FFF;
+  }
+  .font-monda {
+    font-family: 'Monda', sans-serif;
+  }
+}
+
+body {
+    background-image: url('/background-game2.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    min-height: 100vh;
+}
 
 .shadow-text {
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);

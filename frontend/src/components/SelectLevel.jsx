@@ -24,7 +24,7 @@ function SelectLevel({ onStart }) {
   };
 
   return (
-    <div className="bg-white p-8 rounded-xl shadow-2xl max-w-md w-full">
+    <div className="bg-transparent p-8 rounded-xl shadow-2xl max-w-md w-full">
       <h2 className="text-2xl font-semibold mb-4 text-center text-indigo-700">Select Level</h2>
       <select
         value={level}
