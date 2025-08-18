@@ -1,6 +1,14 @@
 {
+  "name": "math-game-backend",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node main.js"
+  },
+
   "dependencies": {
+    "cors": "^2.8.5",
     "dotenv": "^17.2.1",
+    "express": "^5.1.0",
     "openai": "^5.12.2"
   }
 }

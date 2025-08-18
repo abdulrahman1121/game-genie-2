@@ -1,21 +1,17 @@
 require('dotenv').config();
-const readline = require('readline');
-const OpenAI = require('openai');
-console.log('OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? 'Loaded' : 'Missing');
+const express = require('express');
+const cors = require('cors');
+const OpenAI = require('openai').default;
 
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY }); // Set your OPENAI_API_KEY in environment variables
-
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
-
-function ask(question) {
-  return new Promise((resolve) => {
-    rl.question(question, resolve);
-  });
+if (!process.env.OPENAI_API_KEY) {
+  console.error('Error: OPENAI_API_KEY is not set in .env file');
+  process.exit(1);
 }
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const app = express();
+app.use(cors());
+app.use(express.json());
 
 const operationMap = {
   addition: '+',
@@ -23,6 +19,8 @@ const operationMap = {
   multiplication: '*',
   division: '/',
 };
+
+let gameState = null;
 
 async function chooseOperation(level) {
   let ops;
@@ -37,15 +35,19 @@ async function chooseOperation(level) {
   }
 
   const prompt = `Randomly choose one operation from: ${ops.join(', ')}. Respond only with the chosen operation name.`;
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [{ role: 'user', content: prompt }],
-  });
-  const chosenOp = response.choices[0].message.content.trim().toLowerCase();
-  if (!ops.includes(chosenOp)) {
-    throw new Error('Invalid operation chosen by AI');
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+    });
+    const chosenOp = response.choices[0].message.content.trim().toLowerCase();
+    if (!ops.includes(chosenOp)) {
+      throw new Error('Invalid operation chosen by AI');
+    }
+    return { name: chosenOp, symbol: operationMap[chosenOp] };
+  } catch (err) {
+    throw new Error(`Failed to choose operation: ${err.message}`);
   }
-  return { name: chosenOp, symbol: operationMap[chosenOp] };
 }
 
 async function generateTargetAndNumbers(operationName, symbol) {
@@ -61,12 +63,16 @@ Try to make all 16 numbers as unique as possible; allow duplicates only if neces
 First generate the pairs, then flatten them into a list of 16 numbers and shuffle the list.
 Output only valid JSON: {"target": target, "numbers": [shuffled array of 16 numbers]}
 `;
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [{ role: 'user', content: prompt }],
-  });
-  const jsonStr = response.choices[0].message.content.trim();
-  return JSON.parse(jsonStr);
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+    });
+    const jsonStr = response.choices[0].message.content.trim();
+    return JSON.parse(jsonStr);
+  } catch (err) {
+    throw new Error(`Failed to generate numbers: ${err.message}`);
+  }
 }
 
 function createGrid(numbers) {
@@ -75,22 +81,6 @@ function createGrid(numbers) {
     grid.push(numbers.slice(i * 4, (i + 1) * 4));
   }
   return grid;
-}
-
-function displayGrid(grid, marked, target, symbol) {
-  console.log('Grid:');
-  for (let r = 0; r < 4; r++) {
-    const row = [];
-    for (let c = 0; c < 4; c++) {
-      row.push(marked[r][c] ? 'X' : grid[r][c]);
-    }
-    console.log(row.join('\t'));
-  }
-  console.log(`Target: ${target}, Operation: ${symbol}`);
-}
-
-function isAllMatched(marked) {
-  return marked.every(row => row.every(cell => cell));
 }
 
 function checkPair(a, b, symbol, target) {
@@ -105,79 +95,80 @@ function checkPair(a, b, symbol, target) {
   return false;
 }
 
-async function main() {
-  console.log('Welcome to the Math Game!');
-
-  let level;
-  while (true) {
-    level = (await ask('Pick level: basic, intermediate, or advanced: ')).trim().toLowerCase();
-    if (['basic', 'intermediate', 'advanced'].includes(level)) break;
-    console.log('Invalid level, try again.');
-  }
-
-  const { name: operationName, symbol } = await chooseOperation(level);
-
-  const { target, numbers } = await generateTargetAndNumbers(operationName, symbol);
-
-  const grid = createGrid(numbers);
-  const marked = Array(4).fill().map(() => Array(4).fill(false));
-
-  while (!isAllMatched(marked)) {
-    displayGrid(grid, marked, target, symbol);
-
-    let r1, c1, r2, c2;
-    while (true) {
-      const input1 = (await ask('Enter first position (row col, 1-4): ')).trim();
-      const parts1 = input1.split(' ').map(x => parseInt(x) - 1);
-      if (parts1.length !== 2 || parts1.some(isNaN) || parts1.some(x => x < 0 || x > 3)) {
-        console.log('Invalid input, try again.');
-        continue;
-      }
-      [r1, c1] = parts1;
-      if (marked[r1][c1]) {
-        console.log('Already matched, choose another.');
-        continue;
-      }
-      break;
-    }
-
-    while (true) {
-      const input2 = (await ask('Enter second position (row col, 1-4): ')).trim();
-      const parts2 = input2.split(' ').map(x => parseInt(x) - 1);
-      if (parts2.length !== 2 || parts2.some(isNaN) || parts2.some(x => x < 0 || x > 3)) {
-        console.log('Invalid input, try again.');
-        continue;
-      }
-      [r2, c2] = parts2;
-      if (marked[r2][c2]) {
-        console.log('Already matched, choose another.');
-        continue;
-      }
-      if (r1 === r2 && c1 === c2) {
-        console.log('Same position, choose different.');
-        continue;
-      }
-      break;
-    }
-
-    const num1 = grid[r1][c1];
-    const num2 = grid[r2][c2];
-
-    if (checkPair(num1, num2, symbol, target)) {
-      marked[r1][c1] = true;
-      marked[r2][c2] = true;
-      console.log('Correct!');
-    } else {
-      console.log('Wrong, try again.');
-    }
-  }
-
-  displayGrid(grid, marked, target, symbol);
-  console.log('You won!');
-  rl.close();
+function isAllMatched(marked) {
+  return marked.every(row => row.every(cell => cell));
 }
 
-main().catch(err => {
-  console.error(err);
-  rl.close();
+app.post('/start', async (req, res) => {
+  const { level } = req.body;
+  if (!['basic', 'intermediate', 'advanced'].includes(level)) {
+    return res.status(400).json({ error: 'Invalid level' });
+  }
+
+  try {
+    const { name: operationName, symbol } = await chooseOperation(level);
+    const { target, numbers } = await generateTargetAndNumbers(operationName, symbol);
+    if (!numbers || numbers.length !== 16) {
+      throw new Error('Invalid number of grid values returned');
+    }
+    const grid = createGrid(numbers);
+    const marked = Array(4).fill().map(() => Array(4).fill(false));
+
+    gameState = { level, operationName, symbol, target, grid, marked };
+    res.json({ target, symbol, grid, marked, message: 'Game started' });
+  } catch (err) {
+    console.error('Start endpoint error:', err);
+    res.status(500).json({ error: `Failed to start game: ${err.message}` });
+  }
+});
+
+app.post('/guess', (req, res) => {
+  if (!gameState) {
+    return res.status(400).json({ error: 'No game in progress' });
+  }
+
+  const { r1, c1, r2, c2 } = req.body;
+  if (
+    r1 < 0 || r1 > 3 || c1 < 0 || c1 > 3 ||
+    r2 < 0 || r2 > 3 || c2 < 0 || c2 > 3 ||
+    (r1 === r2 && c1 === c2) ||
+    gameState.marked[r1][c1] || gameState.marked[r2][c2]
+  ) {
+    return res.status(400).json({ error: 'Invalid or already matched positions', correct: false });
+  }
+
+  const num1 = gameState.grid[r1][c1];
+  const num2 = gameState.grid[r2][c2];
+  const isCorrect = checkPair(num1, num2, gameState.symbol, gameState.target);
+
+  if (isCorrect) {
+    gameState.marked[r1][c1] = true;
+    gameState.marked[r2][c2] = true;
+  }
+
+  const won = isAllMatched(gameState.marked);
+  res.json({
+    correct: isCorrect,
+    marked: gameState.marked,
+    won,
+    message: isCorrect ? 'Correct!' : 'Wrong, try again.',
+  });
+});
+
+app.get('/state', (req, res) => {
+  if (!gameState) {
+    return res.status(400).json({ error: 'No game in progress' });
+  }
+  res.json({
+    target: gameState.target,
+    symbol: gameState.symbol,
+    grid: gameState.grid,
+    marked: gameState.marked,
+    won: isAllMatched(gameState.marked),
+  });
+});
+
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`Backend running on port ${PORT}`);
 });
