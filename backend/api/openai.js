@@ -202,7 +202,9 @@ router.post('/start', async (req, res) => {
     const marked = Array(4).fill().map(() => Array(4).fill(false));
 
     gameState = { level, operationName, symbol, target, grid, marked };
-    res.json({ target, symbol, grid, marked, message: 'Game started' });
+    const response = { target, symbol, operationName, grid, marked, message: 'Game started' };
+    console.log('Start endpoint response:', response); // Debug log
+    res.json(response);
   } catch (err) {
     console.error('Start endpoint error:', err);
     res.status(500).json({ error: `Failed to start game: ${err.message}` });
@@ -246,13 +248,16 @@ router.get('/state', (req, res) => {
   if (!gameState) {
     return res.status(400).json({ error: 'No game in progress' });
   }
-  res.json({
+  const response = {
     target: gameState.target,
     symbol: gameState.symbol,
+    operationName: gameState.operationName,
     grid: gameState.grid,
     marked: gameState.marked,
     won: isAllMatched(gameState.marked),
-  });
+  };
+  console.log('State endpoint response:', response); // Debug log
+  res.json(response);
 });
 
 module.exports = router;
