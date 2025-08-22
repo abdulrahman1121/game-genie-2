@@ -96,7 +96,7 @@ function GamePage({ initialState }) {
   return (
     <div className="bg-white p-10 rounded-xl shadow-2xl max-w-3xl w-full">
       <div className="bg-white flex items-center justify-between mb-6">
-        <h2 className="text-[#E65CB6] text-center text-stroke-3 font-monda text-[36px] font-normal font-bold leading-normal uppercase">
+        <h2 className="text-[#E65CB6] text-center font-['Monda'] text-[36px] font-bold leading-normal uppercase ">
           {gameState.operationName}
         </h2>
         <div className="flex items-center gap-4">
@@ -106,38 +106,62 @@ function GamePage({ initialState }) {
         </div>
       </div>
       <div className="flex items-center justify-center gap-6 mb-8 text-2xl">
-        <div className="w-24 h-24 border-2 border-dashed border-indigo-300 rounded-lg flex items-center justify-center bg-indigo-50 text-indigo-700 font-semibold">
+        <div className="w-[54px] h-[75px] border-2 rounded-[14px] bg-[#D9D9D9] shadow-[5px_5px_0_0_#959595] flex items-center justify-center">
           {selected[0] ? selected[0].num : ''}
         </div>
         <span className="text-[#E65CB6] text-center text-stroke-3 font-monda text-[36px] font-normal font-bold leading-normal uppercase">
           {gameState.symbol}
         </span>
-        <div className="w-24 h-24 border-2 border-dashed border-indigo-300 rounded-lg flex items-center justify-center bg-indigo-50 text-indigo-700 font-semibold">
+        <div className="w-[54px] h-[75px] border-2 rounded-[14px] bg-[#D9D9D9] shadow-[5px_5px_0_0_#959595] flex items-center justify-center">
           {selected[1] ? selected[1].num : ''}
         </div>
         <span className="text-[#E65CB6] text-center text-stroke-3 font-monda text-[36px] font-normal font-bold leading-normal uppercase">
           =
         </span>
-        <div className={`w-24 h-24 border-2 rounded-lg flex items-center justify-center bg-indigo-50 text-lg font-semibold ${
+        <div className={`w-[42px] h-[75px] border-b-[5px] border-b-[#E65CB6] shadow-[0_3px_0_0_#FFF] ${
           localResult !== null ? (localResult === gameState.target ? 'border-green-500 text-green-600' : 'border-red-500 text-red-600') : 'border-indigo-300 text-indigo-700'
         }`}>
           {localResult !== null ? localResult : ''}
         </div>
       </div>
-      <div className="grid grid-cols-4 gap-1 mb-8">
-        {gameState.grid.map((row, r) => row.map((num, c) => (
+
+      <div className="flex items-center gap-6 mb-8 ml-8">
+  <div className="relative mx-auto w-[750px] max-w-[800px]">
+    {/* Background grid (7x5) */}
+    <div className="absolute top-[-17px] left-[0px] grid grid-cols-7 grid-rows-5 gap-4 z-0 w-[637px]">
+      {Array(5).fill().flatMap((_, r) =>
+        Array(7).fill().map((_, c) => (
+          <div
+            key={`bg-${r}-${c}`}
+            className="w-[91px] h-[91px] rounded-[14px] bg-[#ABABAB] shadow-[7px_7px_0_0_#5C5C5C] border border-gray-500 cursor-pointer"
+            onClick={() => console.log(`Clicked background tile ${r},${c}`)}
+          />
+        ))
+      )}
+    </div>
+
+    {/* Foreground grid (4x4) */}
+    <div className="grid grid-cols-4 gap-4 w-[364px] z-10 relative mx-auto left-[50px] top-[45px]">
+      {gameState.grid.map((row, r) =>
+        row.map((num, c) => (
           <button
-            key={`${r}-${c}`}
-            className={`w-[91px] h-[91px] flex items-center justify-center rounded-[14px] bg-gray-300 shadow-[7px_7px_0_0_#959595] text-4xl font-bold transition duration-300
-            ${gameState.marked[r][c] ? 'bg-green-100 line-through text-red-500 cursor-not-allowed' : 'bg-gray-300 hover:shadow-[7px_7px_0_0_#707070]'}
-            ${selected.some(s => s.r === r && s.c === c) ? 'bg-indigo-100' : ''}`}
+            key={`fg-${r}-${c}`}
+            className={`w-[91px] h-[91px] flex items-center justify-center rounded-[14px] text-4xl font-bold transition duration-300
+              ${gameState.marked[r][c] ? 'opacity-0 pointer-events-none' : 'bg-gray-300 shadow-[7px_7px_0_0_#959595] hover:shadow-[7px_7px_0_0_#707070]'}
+              ${selected.some(s => s.r === r && s.c === c) ? 'bg-indigo-100' : ''}`}
             onClick={() => handleCellClick(r, c, num)}
             disabled={gameState.marked[r][c] || loading || gameState.won}
           >
             {gameState.marked[r][c] ? 'X' : num}
           </button>
-        )))}
-      </div>
+        ))
+      )}
+    </div>
+  </div>
+
+  <img src="/genie.png" alt="Genie" className="w-32 h-32 object-contain" />
+</div>
+
       <p className={`text-center text-xl font-semibold ${message === 'Correct!' ? 'text-green-600' : 'text-red-600'}`}>
         {message}
       </p>
