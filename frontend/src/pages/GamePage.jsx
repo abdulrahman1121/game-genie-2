@@ -93,8 +93,12 @@ function GamePage({ initialState }) {
     return 'Invalid';
   }
 
+  const size = gameState.grid.length;
+  const cell = size === 4 ? 91 : size === 6 ? 72 : 60;
+  const gap = size === 4 ? 16 : 12;
+
   return (
-    <div className="bg-white p-10 rounded-xl shadow-2xl max-w-3xl w-full">
+    <div className="relative bg-white p-10 rounded-xl shadow-2xl w-fit min-w-[48rem] max-w-full">
       <div className="bg-white flex items-center justify-between mb-6">
         <h2 className="text-[#E65CB6] text-center font-['Monda'] text-[36px] font-bold leading-normal uppercase ">
           {gameState.operationName}
@@ -106,61 +110,71 @@ function GamePage({ initialState }) {
         </div>
       </div>
       <div className="flex items-center justify-center gap-6 mb-8 text-2xl">
-        <div className="w-[54px] h-[75px] border-2 rounded-[14px] bg-[#D9D9D9] shadow-[5px_5px_0_0_#959595] flex items-center justify-center">
+        <div className="w-[72px] h-[96px] border-2 rounded-[14px] bg-[#D9D9D9] shadow-[5px_5px_0_0_#959595] flex items-center justify-center text-4xl font-bold">
           {selected[0] ? selected[0].num : ''}
         </div>
         <span className="text-[#E65CB6] text-center text-stroke-3 font-monda text-[36px] font-normal font-bold leading-normal uppercase">
           {gameState.symbol}
         </span>
-        <div className="w-[54px] h-[75px] border-2 rounded-[14px] bg-[#D9D9D9] shadow-[5px_5px_0_0_#959595] flex items-center justify-center">
+        <div className="w-[72px] h-[96px] border-2 rounded-[14px] bg-[#D9D9D9] shadow-[5px_5px_0_0_#959595] flex items-center justify-center text-4xl font-bold">
           {selected[1] ? selected[1].num : ''}
         </div>
         <span className="text-[#E65CB6] text-center text-stroke-3 font-monda text-[36px] font-normal font-bold leading-normal uppercase">
           =
         </span>
-        <div className={`w-[42px] h-[75px] border-b-[5px] border-b-[#E65CB6] shadow-[0_3px_0_0_#FFF] ${
+        <div className={`w-[60px] h-[96px] flex items-center justify-center text-4xl font-bold border-b-[5px] border-b-[#E65CB6] shadow-[0_3px_0_0_#FFF] ${
           localResult !== null ? (localResult === gameState.target ? 'border-green-500 text-green-600' : 'border-red-500 text-red-600') : 'border-indigo-300 text-indigo-700'
         }`}>
           {localResult !== null ? localResult : ''}
         </div>
       </div>
 
-      <div className="flex items-center gap-6 mb-8 ml-8">
-  <div className="relative mx-auto w-[750px] max-w-[800px]">
-    {/* Background grid (7x5) */}
-    <div className="absolute top-[-17px] left-[0px] grid grid-cols-7 grid-rows-5 gap-4 z-0 w-[637px]">
-      {Array(5).fill().flatMap((_, r) =>
-        Array(7).fill().map((_, c) => (
+      {/* Grid: background tiles define the size, foreground sits centered on top */}
+      <div className="flex justify-center mb-8">
+        <div className="relative">
           <div
-            key={`bg-${r}-${c}`}
-            className="w-[91px] h-[91px] rounded-[14px] bg-[#ABABAB] shadow-[7px_7px_0_0_#5C5C5C] border border-gray-500 cursor-pointer"
-            onClick={() => console.log(`Clicked background tile ${r},${c}`)}
-          />
-        ))
-      )}
-    </div>
-
-    {/* Foreground grid (4x4) */}
-    <div className="grid grid-cols-4 gap-4 w-[364px] z-10 relative mx-auto left-[50px] top-[45px]">
-      {gameState.grid.map((row, r) =>
-        row.map((num, c) => (
-          <button
-            key={`fg-${r}-${c}`}
-            className={`w-[91px] h-[91px] flex items-center justify-center rounded-[14px] text-4xl font-bold transition duration-300
-              ${gameState.marked[r][c] ? 'opacity-0 pointer-events-none' : 'bg-gray-300 shadow-[7px_7px_0_0_#959595] hover:shadow-[7px_7px_0_0_#707070]'}
-              ${selected.some(s => s.r === r && s.c === c) ? 'bg-indigo-100' : ''}`}
-            onClick={() => handleCellClick(r, c, num)}
-            disabled={gameState.marked[r][c] || loading || gameState.won}
+            className="grid"
+            style={{
+              gridTemplateColumns: `repeat(${size + 3}, ${cell}px)`,
+              gridTemplateRows: `repeat(${size + 1}, ${cell}px)`,
+              gap: `${gap}px`,
+            }}
           >
-            {gameState.marked[r][c] ? 'X' : num}
-          </button>
-        ))
-      )}
-    </div>
-  </div>
+            {Array((size + 3) * (size + 1)).fill().map((_, i) => (
+              <div
+                key={`bg-${i}`}
+                className="rounded-[14px] bg-[#ABABAB] shadow-[7px_7px_0_0_#5C5C5C] border border-gray-500"
+              />
+            ))}
+          </div>
 
-  <img src="/genie.png" alt="Genie" className="w-32 h-32 object-contain" />
-</div>
+          <div
+            className="absolute grid"
+            style={{
+              top: `${(cell + gap) / 2}px`,
+              left: `${(cell + gap) * 1.5}px`,
+              gridTemplateColumns: `repeat(${size}, ${cell}px)`,
+              gap: `${gap}px`,
+            }}
+          >
+            {gameState.grid.map((row, r) =>
+              row.map((num, c) => (
+                <button
+                  key={`fg-${r}-${c}`}
+                  style={{ width: cell, height: cell }}
+                  className={`flex items-center justify-center rounded-[14px] font-bold transition duration-300 ${size === 4 ? 'text-4xl' : size === 6 ? 'text-3xl' : 'text-2xl'}
+                    ${gameState.marked[r][c] ? 'opacity-0 pointer-events-none' : 'bg-gray-300 shadow-[7px_7px_0_0_#959595] hover:shadow-[7px_7px_0_0_#707070]'}
+                    ${selected.some(s => s.r === r && s.c === c) ? 'bg-indigo-100' : ''}`}
+                  onClick={() => handleCellClick(r, c, num)}
+                  disabled={gameState.marked[r][c] || loading || gameState.won}
+                >
+                  {gameState.marked[r][c] ? 'X' : num}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
 
       <p className={`text-center text-xl font-semibold ${message === 'Correct!' ? 'text-green-600' : 'text-red-600'}`}>
         {message}

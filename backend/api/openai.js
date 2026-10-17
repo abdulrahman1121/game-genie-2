@@ -16,6 +16,8 @@ const operationMap = {
   division: '/',
 };
 
+const gridSizes = { basic: 4, intermediate: 6, advanced: 8 };
+
 let gameState = null;
 
 function chooseOperation(level) {
@@ -34,19 +36,20 @@ function chooseOperation(level) {
   return { name: chosenOp, symbol: operationMap[chosenOp] };
 }
 
-async function generateTargetAndNumbers(operationName, symbol, level) {
+async function generateTargetAndNumbers(operationName, symbol, level, pairCount) {
+  const total = pairCount * 2;
   const maxNumber = level === 'basic' ? 30 : level === 'intermediate' ? 50 : 70;
   const prompt = `
 Generate a target positive integer between 1 and ${maxNumber}.
-Then, generate exactly 8 unique pairs of positive integers (each between 1 and ${maxNumber}) such that when applying the operation "${operationName}" (${symbol}), each pair results in the target.
+Then, generate exactly ${pairCount} unique pairs of positive integers (each between 1 and ${maxNumber}) such that when applying the operation "${operationName}" (${symbol}), each pair results in the target.
 Rules:
 - For addition: a + b = target, with a > 0, b > 0, a <= target, b <= target
 - For subtraction: a - b = target, with a > b > 0, a <= ${maxNumber}
 - For multiplication: a * b = target, with a > 0, b > 0, a <= ${maxNumber}, b <= ${maxNumber}
 - For division: a / b = target with a % b == 0, quotient target, a > 0, b > 0, a <= ${maxNumber}, b <= ${maxNumber}
-Maximize uniqueness of all 16 numbers; duplicates are allowed only if no unique solution exists (e.g., multiplication target 1 requires [1,1]).
-First generate the pairs, then flatten them into a list of 16 numbers and shuffle the list.
-Output only valid JSON: {"target": number, "pairs": [[a1,b1],[a2,b2],...,[a8,b8]], "numbers": [shuffled array of 16 numbers]}
+Maximize uniqueness of all ${total} numbers; duplicates are allowed only if no unique solution exists (e.g., multiplication target 1 requires [1,1]).
+First generate the pairs, then flatten them into a list of ${total} numbers and shuffle the list.
+Output only valid JSON: {"target": number, "pairs": [[a1,b1],[a2,b2],...,[a${pairCount},b${pairCount}]], "numbers": [shuffled array of ${total} numbers]}
 Ensure all pairs satisfy the operation exactly and all numbers are integers within the specified range.
 `;
   let attempts = 0;
@@ -56,7 +59,7 @@ Ensure all pairs satisfy the operation exactly and all numbers are integers with
     attempts++;
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), 5000 + pairCount * 500);
 
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
@@ -65,7 +68,7 @@ Ensure all pairs satisfy the operation exactly and all numbers are integers with
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,
-        max_tokens: 500,
+        max_tokens: 200 + pairCount * 40,
         signal: controller.signal,
       });
 
@@ -73,7 +76,7 @@ Ensure all pairs satisfy the operation exactly and all numbers are integers with
 
       const jsonStr = response.choices[0].message.content.trim();
       const result = JSON.parse(jsonStr);
-      if (!result.target || !result.pairs || result.pairs.length !== 8 || !result.numbers || result.numbers.length !== 16) {
+      if (!result.target || !result.pairs || result.pairs.length !== pairCount || !result.numbers || result.numbers.length !== total) {
         throw new Error('Invalid response format');
       }
 
@@ -126,7 +129,7 @@ Ensure all pairs satisfy the operation exactly and all numbers are integers with
     let localAttempts = 0;
     let allowDuplicates = false;
 
-    while (pairs.length < 8) {
+    while (pairs.length < pairCount) {
       localAttempts++;
       if (localAttempts > 500) {
         allowDuplicates = true;
@@ -165,7 +168,7 @@ Ensure all pairs satisfy the operation exactly and all numbers are integers with
       usedNumbers.add(a);
       usedNumbers.add(b);
     }
-    if (pairs.length === 8) {
+    if (pairs.length === pairCount) {
       numbers = pairs.flat();
       for (let i = numbers.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -177,10 +180,10 @@ Ensure all pairs satisfy the operation exactly and all numbers are integers with
   return { target, numbers };
 }
 
-function createGrid(numbers) {
+function createGrid(numbers, size) {
   const grid = [];
-  for (let i = 0; i < 4; i++) {
-    grid.push(numbers.slice(i * 4, (i + 1) * 4));
+  for (let i = 0; i < size; i++) {
+    grid.push(numbers.slice(i * size, (i + 1) * size));
   }
   return grid;
 }
@@ -207,12 +210,13 @@ router.post('/start', async (req, res) => {
   }
   try {
     const { name: operationName, symbol } = chooseOperation(level);
-    const { target, numbers } = await generateTargetAndNumbers(operationName, symbol, level);
-    if (!numbers || numbers.length !== 16) {
+    const size = gridSizes[level];
+    const { target, numbers } = await generateTargetAndNumbers(operationName, symbol, level, (size * size) / 2);
+    if (!numbers || numbers.length !== size * size) {
       throw new Error('Invalid number of grid values returned');
     }
-    const grid = createGrid(numbers);
-    const marked = Array(4).fill().map(() => Array(4).fill(false));
+    const grid = createGrid(numbers, size);
+    const marked = Array(size).fill().map(() => Array(size).fill(false));
 
     gameState = { level, operationName, symbol, target, grid, marked };
     const response = { target, symbol, operationName, grid, marked, message: 'Game started' };
@@ -230,9 +234,10 @@ router.post('/guess', (req, res) => {
   }
 
   const { r1, c1, r2, c2 } = req.body;
+  const size = gameState.grid.length;
   if (
-    r1 < 0 || r1 > 3 || c1 < 0 || c1 > 3 ||
-    r2 < 0 || r2 > 3 || c2 < 0 || c2 > 3 ||
+    r1 < 0 || r1 >= size || c1 < 0 || c1 >= size ||
+    r2 < 0 || r2 >= size || c2 < 0 || c2 >= size ||
     (r1 === r2 && c1 === c2) ||
     gameState.marked[r1][c1] || gameState.marked[r2][c2]
   ) {
